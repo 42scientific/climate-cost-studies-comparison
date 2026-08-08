@@ -21,7 +21,7 @@ def load_ranges() -> pd.DataFrame:
         {
             "year_min": 2006,
             "year_max": 2006,
-            "title": "Stern Review",
+            "title": '"Stern Review"',
             "typical_mitigation_cost": "~1% global GDP",
             "typical_damage_cost": "≥5%, expanded to ~20% consumption equivalent",
             "knowledge_change": "Early explicit global cost-benefit comparison."
@@ -29,7 +29,7 @@ def load_ranges() -> pd.DataFrame:
         {
             "year_min": 2007,
             "year_max": 2014,
-            "title": "IPCC Era",
+            "title": '"IPCC Era"',
             "typical_mitigation_cost": "often a few % of GDP/consumption for ambitious stabilization",
             "typical_damage_cost": "often a few % in traditional IAMs, higher values under catastrophe risk",
             "knowledge_change": "Technology and policy assumptions dominate mitigation costs; damage functions remain conservative."
@@ -37,7 +37,7 @@ def load_ranges() -> pd.DataFrame:
         {
             "year_min": 2015,
             "year_max": 2021,
-            "title": "Empirical Shift",
+            "title": '"Empirical Shift"',
             "typical_mitigation_cost": "still in the low to mid single-digit % range",
             "typical_damage_cost": "from ~1-3% up to ~23% and more",
             "knowledge_change": "Temperature-growth models open up substantially larger damage ranges. "
@@ -45,7 +45,7 @@ def load_ranges() -> pd.DataFrame:
         {
             "year_min": 2024,
             "year_max": 2026,
-            "title": "New Generation",
+            "title": '"New Generation"',
             "typical_mitigation_cost": "strong climate policy sometimes with only small net GDP effects",
             "typical_damage_cost": "~3% to >50%, depending on method; meta-analyses often ~7-13% at 3 C",
             "knowledge_change": "Uncertainty is made more explicit; systemic and persistent damages move to the forefront. "
@@ -245,7 +245,7 @@ def load_data() -> pd.DataFrame:
             "study": "Institute for Policy Integrity at New York University School of Law / Department of Economics, School of Business, Economics and Law, Environmental: Economics Unit, Gothenburg: Methodology Matters: A Careful Meta-Analysis of Climate Damages",
             "short_name": "A Careful Meta-Analysis of Climate Damages",
             "scope": "Global",
-            "horizon": "1994–2015",
+            "horizon": "1990–2300",
             "metric_type": "GDP-loss and stress estimates, %",
             "damage_low_pct": 0,
             "damage_mid_pct": 9.1,
@@ -381,10 +381,10 @@ def make_chart(
             xanchor=label_anchor,
             yanchor="top",
             align="center" if fits_center else "left",
-            font=dict(size=11, color="#374151"),
+            font=dict(size=14, color="#374151"),
             bgcolor="rgba(255,255,255,0.45)",
             bordercolor="rgba(148,163,184,0.5)",
-            borderwidth=1,
+            borderwidth=0,
             borderpad=2,
         )
 
@@ -525,8 +525,8 @@ def make_chart(
         margin=dict(l=60, r=35, t=110, b=85),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
+            yanchor="top",
+            y=0.92,
             xanchor="left",
             x=0.01,
             bgcolor="rgba(255,255,255,0.0)",
@@ -572,7 +572,7 @@ df = load_data()
 long_df = long_format(df)
 
 st.title("Climate Damages vs. Climate Action Costs")
-st.caption("A compact, publication-ready Streamlit chart based on a harmonized study table. " + DATA_URL_NOTE)
+st.caption("Comparing 20 years of climate and decarb cost studies")
 
 with st.sidebar:
     st.header("Display")
@@ -592,7 +592,7 @@ with st.sidebar:
         dedent(
             """
             **Important for publication**  
-            This visualization works as a narrative overview. The caption should clearly state that the studies use different methods, time horizons, and cost concepts.
+            This visualization works as a narrative overview. The incorporated studies use different methods, time horizons, and cost concepts.
             """
         )
     )
@@ -606,19 +606,20 @@ elif view == "Germany only":
     points = points[points["scope"] == "Germany"]
 points = points[points["kind"].isin(kinds)]
 
-m1, m2, m3, m4 = st.columns(4)
+# m1, m2, m3, m4 = st.columns(4)
+m1, m2, m3 = st.columns(3)
 with m1:
     st.metric("Study points", f"{len(points)}")
 with m2:
-    dmg = points.loc[points["kind"].str.startswith("Climate damages"), "mid_pct"]
-    st.metric("Median climate damages", "-" if dmg.empty else f"{dmg.median():.1f}%")
-with m3:
     mit = points.loc[points["kind"].str.startswith("Climate action"), "mid_pct"]
-    st.metric("Median climate action cost", "-" if mit.empty else f"{mit.median():.1f}%")
-with m4:
-    pair_source = df[df["comparability"] != "Retracted"].dropna(subset=["damage_mid_pct", "mitigation_mid_pct"]).copy()
-    pair_source["ratio"] = pair_source["damage_mid_pct"] / pair_source["mitigation_mid_pct"]
-    st.metric("Median ratio", "-" if pair_source.empty else f"{pair_source['ratio'].median():.1f}x")
+    st.metric("Median climate action cost", "-" if mit.empty else f"{mit.median():.1f} %")
+with m3:
+    dmg = points.loc[points["kind"].str.startswith("Climate damages"), "mid_pct"]
+    st.metric("Median climate damages", "-" if dmg.empty else f"{dmg.median():.1f} %")
+# with m4:
+#     pair_source = df[df["comparability"] != "Retracted"].dropna(subset=["damage_mid_pct", "mitigation_mid_pct"]).copy()
+#     pair_source["ratio"] = pair_source["damage_mid_pct"] / pair_source["mitigation_mid_pct"]
+#     st.metric("Median ratio", "-" if pair_source.empty else f"{pair_source['ratio'].median():.1f}x")
 
 if points.empty:
     st.warning("No chartable data points are available for the current filter combination.")
@@ -630,22 +631,21 @@ else:
     )
     st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False, "toImageButtonOptions": {"format": "png", "scale": 3}})
 
-    col_a, col_b, col_c = st.columns([1, 1, 1])
-    with col_a:
+    with st.sidebar:
+        st.divider()
+        st.subheader("Downloads")
         st.download_button(
             "Download data as CSV",
             data=df.to_csv(index=False).encode("utf-8"),
             file_name="climate_costs_harmonized_studies.csv",
             mime="text/csv",
         )
-    with col_b:
         st.download_button(
             "Interactive chart as HTML",
             data=fig.to_html(include_plotlyjs="cdn", full_html=True).encode("utf-8"),
             file_name="climate_costs_chart.html",
             mime="text/html",
         )
-    with col_c:
         try:
             svg = fig.to_image(format="svg", scale=2)
             st.download_button(
@@ -659,58 +659,53 @@ else:
 
 st.divider()
 
-left, right = st.columns([1.15, 0.85])
-with left:
-    st.subheader("Final table and methodological context")
-    table_cols = [
-        "publication_year",
-        "short_name",
-        "scope",
-        "horizon",
-        "damage_text",
-        "mitigation_text",
-        "comparability",
-        "harmonisation_note",
-    ]
-    shown = df[table_cols].rename(
-        columns={
-            "publication_year": "Year",
-            "short_name": "Study",
-            "scope": "Scope",
-            "horizon": "Horizon",
-            "damage_text": "Climate damages / inaction",
-            "mitigation_text": "Climate action / decarbonization",
-            "comparability": "Comparability",
-            "harmonisation_note": "Harmonization note",
-        }
+st.subheader("Core takeaway")
+st.markdown(
+    dedent(
+        """
+        Ambitious, efficiently organized decarbonization incurs measurable and sometimes substantial transformation costs. However, much of the current economic literature concludes that these costs are significantly lower than the expected long-term damages of a high-temperature warming pathway. And the more systemic risks and persistent growth effects are taken into account, the more pronounced this difference becomes.
+        """
     )
-    st.dataframe(shown, use_container_width=True, hide_index=True)
+)
+pair = df[df["comparability"] != "Retracted"].dropna(subset=["damage_mid_pct", "mitigation_mid_pct"])[["short_name", "damage_mid_pct", "mitigation_mid_pct"]].copy()
+# if not pair.empty:
+#     pair["Damage / climate action cost"] = pair["damage_mid_pct"] / pair["mitigation_mid_pct"]
+#     st.dataframe(
+#         pair.rename(
+#             columns={
+#                 "short_name": "Study",
+#                 "damage_mid_pct": "Damage (%)",
+#                 "mitigation_mid_pct": "Climate action (%)",
+#             }
+#         ),
+#         use_container_width=True,
+#         hide_index=True,
+#     )
 
-with right:
-    st.subheader("Core takeaway")
-    st.markdown(
-        dedent(
-            """
-            The robust takeaway is not that every number can be directly compared with every other number. The robust takeaway is: in the literature, estimated damages from unabated or insufficiently limited climate change are often orders of magnitude higher than the modeled macroeconomic costs of timely decarbonization.
-
-            A cautious phrasing for publication is therefore appropriate: **The best available literature repeatedly suggests that early action is more economically plausible than delayed response.**
-            """
-        )
-    )
-    pair = df[df["comparability"] != "Retracted"].dropna(subset=["damage_mid_pct", "mitigation_mid_pct"])[["short_name", "damage_mid_pct", "mitigation_mid_pct"]].copy()
-    if not pair.empty:
-        pair["Damage / climate action cost"] = pair["damage_mid_pct"] / pair["mitigation_mid_pct"]
-        st.dataframe(
-            pair.rename(
-                columns={
-                    "short_name": "Study",
-                    "damage_mid_pct": "Damage (%)",
-                    "mitigation_mid_pct": "Climate action (%)",
-                }
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
+st.subheader("Studies summary and methodological context")
+table_cols = [
+    "publication_year",
+    "short_name",
+    "scope",
+    "horizon",
+    "damage_text",
+    "mitigation_text",
+    "comparability",
+    "harmonisation_note",
+]
+shown = df[table_cols].rename(
+    columns={
+        "publication_year": "Year",
+        "short_name": "Study",
+        "scope": "Scope",
+        "horizon": "Horizon",
+        "damage_text": "Climate damages / inaction",
+        "mitigation_text": "Climate action / decarbonization",
+        "comparability": "Comparability",
+        "harmonisation_note": "Harmonization note",
+    }
+)
+st.dataframe(shown, use_container_width=True, hide_index=True)
 
 with st.expander("Source URLs"):
     for _, row in df.sort_values("publication_year").iterrows():
