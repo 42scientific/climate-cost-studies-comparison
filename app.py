@@ -243,7 +243,7 @@ def load_data() -> pd.DataFrame:
         {
             "publication_year": 2013,
             "study": "Institute for Policy Integrity at New York University School of Law / Department of Economics, School of Business, Economics and Law, Environmental: Economics Unit, Gothenburg: Methodology Matters: A Careful Meta-Analysis of Climate Damages",
-            "short_name": "A Careful Meta-Analysis of Climate Damages",
+            "short_name": "A Careful Meta-Analysis of Climate Damages<br>(Older range of studies)",
             "scope": "Global",
             "horizon": "1990–2300",
             "metric_type": "GDP-loss and stress estimates, %",
@@ -263,7 +263,7 @@ def load_data() -> pd.DataFrame:
         {
             "publication_year": 2025,
             "study": "Institute for Policy Integrity at New York University School of Law / Department of Economics, School of Business, Economics and Law, Environmental: Economics Unit, Gothenburg: Methodology Matters: A Careful Meta-Analysis of Climate Damages",
-            "short_name": "A Careful Meta-Analysis of Climate Damages",
+            "short_name": "A Careful Meta-Analysis of Climate Damages<br>(Younger range of studies)",
             "scope": "Global",
             "horizon": "2016–2250",
             "metric_type": "GDP-loss and stress estimates, %",
@@ -279,6 +279,46 @@ def load_data() -> pd.DataFrame:
             "include_default": True,
             "harmonisation_note": "",
             "source_url": "https://link.springer.com/article/10.1007/s10640-025-01016-7",
+        },
+        {
+            "publication_year": 2026,
+            "study": "UK Climate Change Committee – Supplementary analysis of the Seventh Carbon Budget",
+            "short_name": "UK Climate Change Committee",
+            "scope": "UK",
+            "horizon": "2026–2100",
+            "metric_type": "GDP-loss and stress estimates, %",
+            "damage_low_pct": 4,
+            "damage_mid_pct": 7,
+            "damage_high_pct": 10,
+            "mitigation_low_pct": 0.0,
+            "mitigation_mid_pct": 0.2,
+            "mitigation_high_pct": 0.5,
+            "damage_text": "Climate change damages in the UK could reach 2-4 % of GDP under a 2°C global warming level by 2050.† Under a high-end scenario towards 4 °C global warming by 2100, aggregated climate damages could cost 4-10 % of GDP each year by the end of the century.",
+            "mitigation_text": "In each sensitivity, between 2025 and 2050, the net additional cost of the Balanced Pathway is between 0 % and 0.5 % of GDP per year.",
+            "comparability": "High",
+            "include_default": True,
+            "harmonisation_note": "",
+            "source_url": "https://www.theccc.org.uk/wp-content/uploads/2026/03/Supplementary-analysis-of-the-Seventh-Carbon-Budget-7439yr0294u43ur034r02i.pdf",
+        },
+        {
+            "publication_year": 2026,
+            "study": "Nature Climate Change – Comprehensive national climate damage assessments framework applied to the UK",
+            "short_name": "UK national climate damage assessments",
+            "scope": "UK",
+            "horizon": "2026–2100",
+            "metric_type": "GDP-loss and stress estimates, %",
+            "damage_low_pct": 2,
+            "damage_mid_pct": 7,
+            "damage_high_pct": 20,
+            "mitigation_low_pct": 0.0,
+            "mitigation_mid_pct": 0.2,
+            "mitigation_high_pct": 0.5,
+            "damage_text": "Although current warming produces welfare losses equivalent to 2 % of gross domestic product (95 % confidence interval of 1–4 %), damages grow rapidly under the baseline scenario and reach 10 % of gross domestic product (2–20 %) by the end of the century.",
+            "mitigation_text": "No comparable mitigation-cost estimate in this study.",
+            "comparability": "High",
+            "include_default": True,
+            "harmonisation_note": "",
+            "source_url": "https://www.nature.com/articles/s41558-026-02665-2",
         },
     ]
     df = pd.DataFrame(data)
@@ -388,8 +428,22 @@ def make_chart(
             borderpad=2,
         )
 
+    label_points = []
+
     for kind, group in points.groupby("kind", sort=False):
-        group = group.sort_values("publication_year")
+        group = group.sort_values(["publication_year", "mid_pct", "short_name"]).copy()
+
+        # For exact overlaps (same year and value), spread markers slightly on x so all points remain visible.
+        dup_key = ["publication_year", "mid_pct"]
+        group["_overlap_n"] = group.groupby(dup_key)["short_name"].transform("size")
+        group["_overlap_i"] = group.groupby(dup_key).cumcount()
+        overlap_step = 0.12
+        group["x_plot"] = group["publication_year_plot"] + (
+            group["_overlap_i"] - (group["_overlap_n"] - 1) / 2
+        ) * overlap_step
+
+        label_points.append(group)
+
         customdata = group[[
             "short_name",
             "study",
@@ -409,10 +463,15 @@ def make_chart(
         if kind.startswith("Climate damages"):
             band_group = group.dropna(subset=["low_pct", "high_pct"])
             if not band_group.empty:
+                band_envelope = (
+                    band_group.groupby("publication_year_plot", as_index=False)
+                    .agg(low_pct=("low_pct", "min"), high_pct=("high_pct", "max"))
+                    .sort_values("publication_year_plot")
+                )
                 fig.add_trace(
                     go.Scatter(
-                        x=band_group["publication_year_plot"],
-                        y=band_group["low_pct"],
+                        x=band_envelope["publication_year_plot"],
+                        y=band_envelope["low_pct"],
                         mode="lines",
                         line=dict(width=0),
                         hoverinfo="skip",
@@ -422,8 +481,8 @@ def make_chart(
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=band_group["publication_year_plot"],
-                        y=band_group["high_pct"],
+                        x=band_envelope["publication_year_plot"],
+                        y=band_envelope["high_pct"],
                         mode="lines",
                         line=dict(width=0),
                         fill="tonexty",
@@ -437,10 +496,15 @@ def make_chart(
         if kind.startswith("Climate action"):
             band_group = group.dropna(subset=["low_pct", "high_pct"])
             if not band_group.empty:
+                band_envelope = (
+                    band_group.groupby("publication_year_plot", as_index=False)
+                    .agg(low_pct=("low_pct", "min"), high_pct=("high_pct", "max"))
+                    .sort_values("publication_year_plot")
+                )
                 fig.add_trace(
                     go.Scatter(
-                        x=band_group["publication_year_plot"],
-                        y=band_group["low_pct"],
+                        x=band_envelope["publication_year_plot"],
+                        y=band_envelope["low_pct"],
                         mode="lines",
                         line=dict(width=0),
                         hoverinfo="skip",
@@ -450,8 +514,8 @@ def make_chart(
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=band_group["publication_year_plot"],
-                        y=band_group["high_pct"],
+                        x=band_envelope["publication_year_plot"],
+                        y=band_envelope["high_pct"],
                         mode="lines",
                         line=dict(width=0),
                         fill="tonexty",
@@ -464,7 +528,7 @@ def make_chart(
 
         fig.add_trace(
             go.Scatter(
-                x=group["publication_year_plot"],
+                x=group["x_plot"],
                 y=group["mid_pct"],
                 customdata=customdata,
                 mode="markers" if kind.startswith("Climate damages") else "markers",
@@ -492,9 +556,10 @@ def make_chart(
         )
 
     if show_labels:
-        for _, r in points.iterrows():
+        annotated_points = pd.concat(label_points, ignore_index=True)
+        for _, r in annotated_points.iterrows():
             fig.add_annotation(
-                x=r["publication_year_plot"],
+                x=r["x_plot"],
                 y=r["mid_pct"],
                 text=r["short_name"],
                 showarrow=True,
